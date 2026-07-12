@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from krita_client.anime_models import ImportSvgLayerParams
+from krita_client.anime_models import ImportSvgLayerParams, RenderSvgPaintLayerParams
 from krita_client.client import KritaClient
 
 
@@ -45,6 +45,27 @@ def test_import_svg_layer_sends_editable_vector_payload() -> None:
     )
 
 
+def test_render_svg_paint_layer_sends_krita_raster_payload() -> None:
+    client, sender = client_with_sender()
+
+    client.render_svg_paint_layer(
+        name="Cel shadows",
+        svg='<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h10v10z"/></svg>',
+        opacity=0.8,
+        visible=False,
+    )
+
+    sender.assert_called_once_with(
+        "render_svg_paint_layer",
+        {
+            "name": "Cel shadows",
+            "svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h10v10z"/></svg>',
+            "opacity": 0.8,
+            "visible": False,
+        },
+    )
+
+
 def test_create_storyboard_sends_panel_metadata() -> None:
     client, sender = client_with_sender()
     panels = [{"id": "p1", "x": 20, "y": 20, "width": 300, "height": 180, "action": "hero enters"}]
@@ -64,3 +85,11 @@ def test_svg_model_allows_w3c_namespace_but_rejects_external_href() -> None:
     external = '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/></svg>'
     with pytest.raises(ValueError, match="external resources"):
         ImportSvgLayerParams(name="Unsafe", svg=external)
+
+    assert RenderSvgPaintLayerParams(name="Rendered", svg=valid).svg == valid
+    with pytest.raises(ValueError, match="external resources"):
+        RenderSvgPaintLayerParams(name="Unsafe", svg=external)
+
+    stylesheet = '<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(https://example.com/a.css)</style></svg>'
+    with pytest.raises(ValueError, match="external resources"):
+        RenderSvgPaintLayerParams(name="Unsafe style", svg=stylesheet)

@@ -149,7 +149,8 @@ def test_krita_security_status(mock_client) -> None:
 def test_krita_list_tools(mock_client) -> None:
     result = server.krita_list_tools()
     assert "Available Krita MCP tools" in result
-    assert "57 total" in result
+    assert "58 total" in result
     assert "krita_native_stroke" in result
     assert "krita_import_svg_layer" in result
+    assert "krita_render_svg_paint_layer" in result
     assert "krita_create_storyboard" in result

@@ -34,7 +34,7 @@ validator -> compiler -> bounded Krita actions
 
 ## Demo 效果
 
-这些预览由 [`scripts/render_krita_demos.py`](scripts/render_krita_demos.py) 通过本项目的 HTTP bridge 实际控制 Krita 5.2.11 绘制和导出，没有使用生成式图像模型。每张图都同时保留了分层 `.kra` 源文件：
+这些 1600×1000 预览由 [`scripts/render_krita_demos.py`](scripts/render_krita_demos.py) 通过本项目的 HTTP bridge 实际控制 Krita 5.2.11 绘制和导出，没有使用生成式图像模型，也没有导入外部位图。人物的脸型、眼睛、发束、衣褶、赛璐璐阴影和高光均由确定性的贝塞尔造型构成，再由 Krita 内部的 Qt SVG 引擎渲染到独立 paint layer。每张图都同时保留了分层 `.kra` 源文件：
 
 ![精细线稿与透视场景](docs/demos/fine-lineart-scene.png)
 
@@ -154,7 +154,7 @@ Agent 产出 JSON 后，CLI 只负责确定性验证、编译和执行：
 
 Krita 5 的 PyQt5 和 Krita 6 的 PyQt6 通过兼容层支持。离线测试覆盖 schema、编译器、HTTP 载荷、MCP 和插件纯助手逻辑；真实原生笔刷事件仍需要正在运行、画布可交互的 Krita 实例。
 
-Krita 5/Qt5 的 Windows Python 绑定在调用 `addShapesFromSvg` 时可能原生崩溃，因此插件会返回可恢复的 `UNSUPPORTED_OPERATION` 并要求使用 paint layer；SVG 矢量图层执行路径保留给 Krita 6/Qt6。README 中的三个 demo 使用稳定的 Krita paint layer action 实际生成。
+Krita 5/Qt5 的 Windows Python 绑定在调用 `addShapesFromSvg` 时可能原生崩溃，因此插件会返回可恢复的 `UNSUPPORTED_OPERATION`；此时使用 `render_svg_paint_layer`，由 Krita 内部把安全 SVG 渲染到独立 paint layer。SVG 矢量图层执行路径保留给 Krita 6/Qt6。README 中的三个 demo 均使用该 Krita 5 兼容动作实际生成。
 
 ## 来源与许可
 

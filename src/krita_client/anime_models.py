@@ -39,7 +39,7 @@ class ImportSvgLayerParams(BaseModel):
             message = "SVG must be inline and cannot contain scripts or external resources"
             raise ValueError(message)
         for element in root.iter():
-            if element.tag.rsplit("}", 1)[-1].lower() == "script":
+            if element.tag.rsplit("}", 1)[-1].lower() in {"script", "style"}:
                 message = "SVG must be inline and cannot contain scripts or external resources"
                 raise ValueError(message)
             for attribute, raw_value in element.attrib.items():
@@ -52,6 +52,10 @@ class ImportSvgLayerParams(BaseModel):
                     message = "SVG must be inline and cannot contain scripts or external resources"
                     raise ValueError(message)
         return value
+
+
+class RenderSvgPaintLayerParams(ImportSvgLayerParams):
+    """Render safe inline SVG into a Krita paint layer."""
 
 
 class StoryboardPanelParams(BaseModel):
@@ -77,5 +81,6 @@ class CreateStoryboardParams(BaseModel):
 ANIME_COMMAND_MODELS: dict[str, type[BaseModel]] = {
     "native_stroke": NativeStrokeParams,
     "import_svg_layer": ImportSvgLayerParams,
+    "render_svg_paint_layer": RenderSvgPaintLayerParams,
     "create_storyboard": CreateStoryboardParams,
 }

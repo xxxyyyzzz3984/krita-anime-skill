@@ -19,9 +19,12 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING
 
 import httpx
+
+if TYPE_CHECKING:
+    from typing import Self
 
 # ---------------------------------------------------------------------------
 # Constants

@@ -18,6 +18,7 @@ mock_qt = MagicMock()
 sys.modules["PyQt5"] = mock_qt
 sys.modules["PyQt5.QtCore"] = MagicMock()
 sys.modules["PyQt5.QtGui"] = MagicMock()
+sys.modules["PyQt5.QtSvg"] = MagicMock()
 
 from kritamcp.snapshot_store import BatchSnapshotStore  # noqa: E402
 

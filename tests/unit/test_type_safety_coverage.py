@@ -53,6 +53,7 @@ def test_server_tools_error_coverage() -> None:
         (server_mod.krita_rename_layer, {"old_name": "Layer 1", "new_name": "Layer 2"}),
         (server_mod.krita_set_layer_opacity, {"name": "Layer 1", "opacity": 0.5}),
         (server_mod.krita_set_layer_visibility, {"name": "Layer 1", "visible": True}),
+        (server_mod.krita_render_svg_paint_layer, {"name": "Rendered", "svg": "<svg></svg>"}),
         (server_mod.krita_select_rect, {"x": 0, "y": 0, "width": 1, "height": 1}),
         (server_mod.krita_select_ellipse, {"cx": 0, "cy": 0, "rx": 1, "ry": 1}),
         (server_mod.krita_select_polygon, {"points": [[0, 0]]}),

@@ -291,6 +291,7 @@ def test_command_models_registry() -> None:
             "stroke",
             "native_stroke",
             "import_svg_layer",
+            "render_svg_paint_layer",
             "create_storyboard",
         "fill",
         "draw_shape",

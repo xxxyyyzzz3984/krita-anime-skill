@@ -6,7 +6,7 @@ PLUGIN = Path(__file__).parents[2] / "krita-plugin" / "kritamcp" / "__init__.py"
 def test_plugin_registers_all_anime_actions_and_capabilities() -> None:
     source = PLUGIN.read_text(encoding="utf-8")
 
-    for action in ("native_stroke", "import_svg_layer", "create_storyboard"):
+    for action in ("native_stroke", "import_svg_layer", "render_svg_paint_layer", "create_storyboard"):
         assert f'"{action}": self.cmd_{action}' in source
         assert f'"{action}"' in source[source.index('"commands": [') : source.index("def do_POST")]
 
@@ -53,3 +53,17 @@ def test_svg_import_blocks_known_crashing_qt5_binding() -> None:
     native_call = command.index("layer.addShapesFromSvg")
     assert guard < native_call
     assert 'code="UNSUPPORTED_OPERATION"' in command
+
+
+def test_svg_paint_render_uses_qt_renderer_and_krita_paint_layer() -> None:
+    source = PLUGIN.read_text(encoding="utf-8")
+    start = source.index("def cmd_render_svg_paint_layer")
+    command = source[start : source.index("def cmd_create_storyboard", start)]
+
+    assert 'doc.createNode(name, "paintlayer")' in command
+    assert 'QSvgRenderer(QByteArray(svg.encode("utf-8")))' in command
+    assert "QPainter(image)" in command
+    assert "validate_svg_render_target" in command
+    assert "if image.isNull():" in command
+    assert "layer.setPixelData" in command
+    assert '"engine": "krita-qt-svg"' in command

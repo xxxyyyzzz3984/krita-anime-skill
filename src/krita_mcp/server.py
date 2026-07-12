@@ -211,6 +211,24 @@ def krita_import_svg_layer(
 
 
 @mcp.tool()
+def krita_render_svg_paint_layer(
+    name: str,
+    svg: str,
+    opacity: float = 1.0,
+    visible: bool = True,
+) -> str:
+    """Render safe inline SVG into a Krita paint layer on Krita 5 or 6."""
+    try:
+        client = _get_client()
+        result = client.render_svg_paint_layer(name=name, svg=svg, opacity=opacity, visible=visible)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Rendered SVG into paint layer '{name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
 def krita_create_storyboard(
     name: str,
     panels: list[dict[str, Any]],
@@ -1217,6 +1235,7 @@ def krita_list_tools() -> str:
         ("krita_stroke", "Paint stroke through [x, y] points"),
         ("krita_native_stroke", "Paint pressure points with Krita's native brush engine"),
         ("krita_import_svg_layer", "Create an editable SVG vector layer"),
+        ("krita_render_svg_paint_layer", "Render safe SVG into a Krita paint layer"),
         ("krita_create_storyboard", "Create editable storyboard panels and notes"),
         ("krita_fill", "Fill circular area"),
         ("krita_draw_shape", "Draw rectangle/ellipse/line"),

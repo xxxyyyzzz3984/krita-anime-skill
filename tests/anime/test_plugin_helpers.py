@@ -48,3 +48,17 @@ def test_inline_svg_security_allows_namespace_only() -> None:
 
     external = '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/></svg>'
     assert not anime.is_safe_inline_svg(external)
+
+    stylesheet = '<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(https://example.com/a.css)</style></svg>'
+    assert not anime.is_safe_inline_svg(stylesheet)
+
+
+def test_svg_render_target_rejects_unsafe_memory_or_color_layout() -> None:
+    anime.validate_svg_render_target(1600, 1000, "RGBA", "U8")
+
+    with pytest.raises(ValueError, match="dimensions"):
+        anime.validate_svg_render_target(9000, 1000, "RGBA", "U8")
+    with pytest.raises(ValueError, match="pixel budget"):
+        anime.validate_svg_render_target(8000, 8000, "RGBA", "U8")
+    with pytest.raises(ValueError, match="RGBA/U8"):
+        anime.validate_svg_render_target(1600, 1000, "CMYKA", "U16")

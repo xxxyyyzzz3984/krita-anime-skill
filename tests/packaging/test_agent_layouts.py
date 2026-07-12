@@ -119,7 +119,13 @@ def test_readme_contains_skill_prompts_and_demo_gallery() -> None:
 
     for demo in DEMO_FILES:
         assert demo.is_file(), f"missing demo image: {demo}"
-        assert demo.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        payload = demo.read_bytes()
+        assert payload.startswith(b"\x89PNG\r\n\x1a\n")
+        width = int.from_bytes(payload[16:20], "big")
+        height = int.from_bytes(payload[20:24], "big")
+        assert width >= 1600, f"demo is too narrow for fine anime detail: {demo}"
+        assert height >= 1000, f"demo is too short for fine anime detail: {demo}"
+        assert len(payload) >= 70_000, f"demo lacks the expected rendered detail: {demo}"
         relative = demo.relative_to(ROOT).as_posix()
         assert relative in readme
 
@@ -127,5 +133,7 @@ def test_readme_contains_skill_prompts_and_demo_gallery() -> None:
         assert source.is_file(), f"missing Krita source: {source}"
         with zipfile.ZipFile(source) as archive:
             assert "maindoc.xml" in archive.namelist()
+            document = archive.read("maindoc.xml")
+            assert document.count(b'nodetype="paintlayer"') >= 3
         relative = source.relative_to(ROOT).as_posix()
         assert relative in readme

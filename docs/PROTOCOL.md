@@ -1,6 +1,6 @@
 # Fine-Grained Anime Protocol
 
-The customization adds three backward-compatible plugin actions to protocol `1.0.0`.
+The customization adds four backward-compatible plugin actions to protocol `1.0.0`.
 
 ## `native_stroke`
 
@@ -9,6 +9,10 @@ Parameters: `preset`, `size`, `opacity`, and 2-4096 `{x,y,pressure}` document po
 ## `import_svg_layer`
 
 Parameters: `name`, inline `svg`, `opacity`, and `visible`. The plugin rejects scripts, external URLs, and SVG larger than 2 MB, then creates a Krita `shapelayer` and calls `addShapesFromSvg` so paths remain editable.
+
+## `render_svg_paint_layer`
+
+Parameters: `name`, inline `svg`, `opacity`, and `visible`. The plugin applies the same bounded SVG security policy, enforces the canvas dimension and 32-megapixel allocation limits, renders with Krita's embedded Qt SVG engine, and writes BGRA pixels to a dedicated `paintlayer`. This path requires an `RGBA/U8` document. It is the stable high-detail Bezier path for Krita 5/Qt5; it never imports an external bitmap or calls an image model.
 
 ## `create_storyboard`
 

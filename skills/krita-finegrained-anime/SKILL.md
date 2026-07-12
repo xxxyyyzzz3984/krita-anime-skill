@@ -42,7 +42,9 @@ Read [references/plan-schema.md](references/plan-schema.md) before authoring JSO
 - Preserve character-pack anchors exactly unless the brief explicitly changes an allowed variation.
 - Keep storyboard, rough, lineart, color, vector, and notes in separate editable layers.
 - Use pressure samples and the configured stabilizer for expressive linework; do not replace them with a single polygon.
-- Use Bezier paths or SVG vector layers for clean curves, signs, motion lines, and repeated graphic shapes when `krita introspect capabilities` reports safe vector import. On Krita 5/Qt5, use a paint layer and report the compatibility fallback instead of calling the known-crashing SVG binding.
+- Use Bezier paths or SVG vector layers for clean curves, hair locks, eyes, clothing folds, signs, motion lines, and repeated graphic shapes when `krita introspect capabilities` reports safe vector import. On Krita 5/Qt5, call `render_svg_paint_layer` so Krita's embedded Qt renderer produces a dedicated paint layer instead of calling the known-crashing SVG binding.
+- A polished anime render must use deliberate line-weight hierarchy, separate face/hair/clothing construction, cel-shadow shapes, controlled highlights, and scene perspective. Do not present primitive-only rectangle/ellipse figures as a finished anime result.
+- Never use a hosted image-generation model or import a generated bitmap. The bridge must create the artwork through Krita native strokes, safe Bezier/SVG geometry, vector layers, or Krita-rendered paint layers.
 - Treat PNG/JPG as previews. The `.kra` and JSON plan are the editable source of truth.
 - Never bypass schema validation or send free-form text as a Krita action.
 

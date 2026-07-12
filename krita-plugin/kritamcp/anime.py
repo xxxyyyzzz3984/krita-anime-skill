@@ -36,7 +36,7 @@ def is_safe_inline_svg(value: str) -> bool:
     if root.tag.rsplit("}", 1)[-1].lower() != "svg":
         return False
     for element in root.iter():
-        if element.tag.rsplit("}", 1)[-1].lower() == "script":
+        if element.tag.rsplit("}", 1)[-1].lower() in {"script", "style"}:
             return False
         for attribute, raw_value in element.attrib.items():
             name = attribute.rsplit("}", 1)[-1].lower()
@@ -45,6 +45,27 @@ def is_safe_inline_svg(value: str) -> bool:
             if name.startswith("on") or has_external_scheme or (name == "href" and not lowered.startswith("#")):
                 return False
     return True
+
+
+def validate_svg_render_target(
+    width: int,
+    height: int,
+    color_model: str,
+    color_depth: str,
+    *,
+    max_dimension: int = 8192,
+    max_pixels: int = 32_000_000,
+) -> None:
+    """Reject targets that cannot safely receive a full-canvas BGRA8 buffer."""
+    if width <= 0 or height <= 0 or width > max_dimension or height > max_dimension:
+        message = f"SVG render dimensions must be between 1 and {max_dimension} pixels"
+        raise ValueError(message)
+    if width * height > max_pixels:
+        message = f"SVG render exceeds the {max_pixels} pixel budget"
+        raise ValueError(message)
+    if color_model != "RGBA" or color_depth != "U8":
+        message = "SVG paint rendering requires an RGBA/U8 document"
+        raise ValueError(message)
 
 
 def storyboard_svg(

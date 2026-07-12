@@ -25,6 +25,19 @@ def test_mcp_import_svg_layer_creates_vector_layer() -> None:
     assert result == "Created vector layer 'hair' with 3 shapes"
 
 
+def test_mcp_render_svg_paint_layer_reports_krita_layer() -> None:
+    client = MagicMock()
+    client.render_svg_paint_layer.return_value = {"status": "ok", "engine": "krita-qt-svg"}
+
+    with patch.object(server, "_get_client", return_value=client):
+        result = server.krita_render_svg_paint_layer(name="cel shadows", svg="<svg></svg>")
+
+    assert result == "Rendered SVG into paint layer 'cel shadows'"
+    client.render_svg_paint_layer.assert_called_once_with(
+        name="cel shadows", svg="<svg></svg>", opacity=1.0, visible=True
+    )
+
+
 def test_mcp_create_storyboard_reports_panel_count() -> None:
     client = MagicMock()
     client.create_storyboard.return_value = {"status": "ok"}

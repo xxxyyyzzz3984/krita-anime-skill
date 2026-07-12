@@ -38,7 +38,12 @@ if TYPE_CHECKING:
 
 from pydantic import BaseModel
 
-from krita_client.anime_models import CreateStoryboardParams, ImportSvgLayerParams, NativeStrokeParams
+from krita_client.anime_models import (
+    CreateStoryboardParams,
+    ImportSvgLayerParams,
+    NativeStrokeParams,
+    RenderSvgPaintLayerParams,
+)
 
 MIN_PROTOCOL_VERSION = "1.0.0"
 MAX_PROTOCOL_VERSION = "1.0.0"
@@ -300,6 +305,21 @@ class KritaClient:
             {"name": name, "svg": svg, "opacity": opacity, "visible": visible},
         )
         return self._send("import_svg_layer", validated)
+
+    def render_svg_paint_layer(
+        self,
+        *,
+        name: str,
+        svg: str,
+        opacity: float = 1.0,
+        visible: bool = True,
+    ) -> dict[str, object]:
+        """Render safe inline SVG into a layered Krita raster document."""
+        validated = self._validate(
+            RenderSvgPaintLayerParams,
+            {"name": name, "svg": svg, "opacity": opacity, "visible": visible},
+        )
+        return self._send("render_svg_paint_layer", validated)
 
     def create_storyboard(
         self,

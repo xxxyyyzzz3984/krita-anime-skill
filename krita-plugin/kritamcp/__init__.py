@@ -36,10 +36,23 @@ except Exception:
     pass
 
 from krita import *
-from kritamcp.anime import is_safe_inline_svg, normalize_native_points, storyboard_svg
+from kritamcp.anime import is_safe_inline_svg, normalize_native_points, storyboard_svg, validate_svg_render_target
 from kritamcp.history_store import CommandHistoryStore
 from kritamcp.payload_validator import validate_payload_size, MAX_PAYLOAD_SIZE
-from kritamcp.qt_compat import QT_MAJOR, QColor, QPoint, QPolygon, QThread, QTimer
+from kritamcp.qt_compat import (
+    IMAGE_FORMAT_ARGB32,
+    QT_MAJOR,
+    QByteArray,
+    QColor,
+    QImage,
+    QPainter,
+    QPoint,
+    QPolygon,
+    QSvgRenderer,
+    QThread,
+    QTimer,
+    image_byte_count,
+)
 from kritamcp.rate_limiter import RateLimiter
 from kritamcp.snapshot_store import BatchSnapshotStore
 
@@ -82,7 +95,8 @@ CANVAS_OUTPUT_DIR = os.path.expanduser("~/krita-mcp-output")
 MAX_CANVAS_DIM = 8192
 MAX_BATCH_SIZE = 50
 MAX_LAYERS = 100
-PLUGIN_VERSION = "0.2.0"
+MAX_SVG_RENDER_PIXELS = 32_000_000
+PLUGIN_VERSION = "0.3.0"
 PROTOCOL_VERSION = "1.0.0"
 
 logger = logging.getLogger("kritamcp")
@@ -233,6 +247,7 @@ class PaintRequestHandler(BaseHTTPRequestHandler):
                         "stroke",
                         "native_stroke",
                         "import_svg_layer",
+                        "render_svg_paint_layer",
                         "create_storyboard",
                         "fill",
                         "draw_shape",
@@ -515,6 +530,7 @@ class KritaMCPExtension(Extension):
             "stroke": self.cmd_stroke,
             "native_stroke": self.cmd_native_stroke,
             "import_svg_layer": self.cmd_import_svg_layer,
+            "render_svg_paint_layer": self.cmd_render_svg_paint_layer,
             "create_storyboard": self.cmd_create_storyboard,
             "fill": self.cmd_fill,
             "draw_shape": self.cmd_draw_shape,
@@ -1833,6 +1849,54 @@ class KritaMCPExtension(Extension):
         doc.setActiveNode(layer)
         doc.refreshProjection()
         return {"status": "ok", "name": name, "type": "shapelayer", "shape_count": len(shapes or [])}
+
+    def cmd_render_svg_paint_layer(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Render safe inline SVG into a full-canvas Krita paint layer."""
+        doc = self.get_active_document()
+        if doc is None:
+            return make_error("No active document", code="NO_ACTIVE_DOCUMENT", recoverable=True)
+        name = str(params.get("name", "Rendered SVG"))
+        svg = str(params.get("svg", ""))
+        if len(svg.encode("utf-8")) > 2_000_000:
+            return make_error("Invalid or oversized SVG", code="INVALID_PARAMETERS", recoverable=True)
+        if not is_safe_inline_svg(svg):
+            return make_error("SVG contains scripts or external resources", code="INVALID_PARAMETERS", recoverable=False)
+
+        try:
+            validate_svg_render_target(
+                doc.width(),
+                doc.height(),
+                doc.colorModel(),
+                doc.colorDepth(),
+                max_dimension=MAX_CANVAS_DIM,
+                max_pixels=MAX_SVG_RENDER_PIXELS,
+            )
+        except (AttributeError, TypeError, ValueError) as exc:
+            return make_error(str(exc), code="INVALID_PARAMETERS", recoverable=True)
+
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        if not renderer.isValid():
+            return make_error("Krita could not parse SVG", code="INVALID_PARAMETERS", recoverable=True)
+        image = QImage(doc.width(), doc.height(), IMAGE_FORMAT_ARGB32)
+        if image.isNull():
+            return make_error("Krita could not allocate the SVG render buffer", code="INTERNAL_ERROR", recoverable=True)
+        image.fill(0)
+        painter = QPainter(image)
+        try:
+            renderer.render(painter)
+        finally:
+            painter.end()
+
+        layer = doc.createNode(name, "paintlayer")
+        doc.rootNode().addChildNode(layer, None)
+        ptr = image.bits()
+        ptr.setsize(image_byte_count(image))
+        layer.setPixelData(bytes(ptr), 0, 0, image.width(), image.height())
+        layer.setOpacity(round(float(params.get("opacity", 1.0)) * 255))
+        layer.setVisible(bool(params.get("visible", True)))
+        doc.setActiveNode(layer)
+        doc.refreshProjection()
+        return {"status": "ok", "name": name, "type": "paintlayer", "engine": "krita-qt-svg"}
 
     def cmd_create_storyboard(self, params: dict[str, Any]) -> dict[str, Any]:
         """Create storyboard panels and notes as editable SVG shapes."""
