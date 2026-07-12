@@ -1,0 +1,254 @@
+[project]
+name = "krita-finegrained-cli"
+version = "0.1.0"
+description = "Fine-grained anime and storyboard automation for Krita"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "krita-anime-skill contributors" },
+]
+keywords = ["krita", "anime", "storyboard", "mcp", "cli", "agent-skill", "automation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: Editors :: Raster-Based",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "fastmcp>=3.1.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.0.0",
+    "rich>=13.0.0",
+    "typer>=0.9.0,<0.25",
+]
+
+[project.urls]
+Homepage = "https://github.com/xxxyyyzzz3984/krita-anime-skill"
+Repository = "https://github.com/xxxyyyzzz3984/krita-anime-skill"
+Issues = "https://github.com/xxxyyyzzz3984/krita-anime-skill/issues"
+
+[project.scripts]
+krita = "krita_cli.cli:app"
+krita-anime = "krita_anime.cli:app"
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.26.0"]
+dev = [
+    "beartype>=0.18.0",
+    "hypothesis>=6.151.10",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.1.0",
+    "pytest-httpx>=0.36.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.9",
+    "build>=1.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/krita_client", "src/krita_mcp", "src/krita_cli", "src/krita_anime"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "S",      # flake8-bandit (security)
+    "N",      # pep8-naming
+    "RUF",    # ruff-specific rules
+    "A",      # flake8-builtins
+    "BLE",    # flake8-blind-except
+    "DTZ",    # flake8-datetimez
+    "EM",     # flake8-errmsg
+    "EXE",    # flake8-executable
+    "FBT",    # flake8-boolean-trap
+    "ICN",    # flake8-import-conventions
+    "INP",    # flake8-no-pep420
+    "INT",    # flake8-gettext
+    "ISC",    # flake8-implicit-str-concat
+    "NPY",    # numpy rules
+    "PD",     # pandas-vet
+    "PGH",    # pygrep-hooks
+    "PIE",    # flake8-pie
+    "PL",     # pylint
+    "PT",     # flake8-pytest-style
+    "PTH",    # flake8-use-pathlib
+    "PYI",    # flake8-pyi
+    "Q",      # flake8-quotes
+    "RET",    # flake8-return
+    "RSE",    # flake8-raise
+    "SLOT",   # flake8-slots
+    "T10",    # flake8-debugger
+    "TCH",    # flake8-type-checking
+    "TID",    # flake8-tidy-imports
+    "TRY",    # tryceratops
+]
+ignore = [
+    "S101",   # assert used (allowed in tests)
+    "S603",   # subprocess call (needed for CLI)
+    "TRY003", # long exception messages (too noisy)
+    "PLR0913", # too many arguments (common in API functions)
+    "PLR2004", # magic value comparison
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+    "S101",   # assert allowed in tests
+    "S105",   # hardcoded passwords (test fixtures)
+    "S106",   # hardcoded passwords (test fixtures)
+    "S108",   # /tmp/ paths are fine for test fixtures
+    "S311",   # pseudo-random generators (test fixtures)
+    "PLR2004", # magic values (test assertions)
+    "PLC0415", # local imports in tests are acceptable
+    "PT011",   # pytest.raises too broad
+    "PT012",   # pytest.raises with multiple statements
+    "FBT001", # boolean params are natural for property-based tests
+    "PTH123", # open() is acceptable in test fixtures
+]
+"src/krita_cli/app.py" = [
+    "E402",   # lazy imports to avoid circular dependency
+]
+"src/krita_client/models.py" = [
+    "RUF012", # mutable class attributes (pydantic models)
+    "UP042",  # str, Enum is intentional for JSON-compatible enum values
+]
+"src/krita_client/client.py" = [
+    "FBT001", # boolean params are natural for exception constructors
+    "FBT002", # boolean defaults are natural for exception constructors
+    "TC002",  # BaseModel import in type-checking block would break runtime
+    "TRY300", # try/else pattern is standard for HTTP client error handling
+    "EM102",  # f-string in exception message is acceptable for protocol errors
+    "PLC0415", # lazy import needed to avoid circular dependency
+]
+"src/krita_cli/config_cmd.py" = [
+    "EM102",  # f-string in exception message is acceptable here
+]
+"src/krita_cli/history.py" = [
+    "S110",  # try-except-pass for non-critical logging
+    "BLE001", # blind except for non-critical logging
+]
+"src/krita_cli/_shared.py" = [
+    "TRY300", # try/else pattern needed for recording
+]
+"krita-plugin/kritamcp/qt_compat.py" = [
+    "F401", # this module intentionally re-exports both Qt compatibility surfaces
+    "PLC0415", # QtWidgets must stay lazy for headless plugin unit tests
+]
+"scripts/krita_runner_smoke.py" = [
+    "PLC0415", # imports exist only inside Krita's embedded Python runtime
+    "BLE001", # smoke report must capture unexpected embedded-runtime failures
+]
+"src/krita_cli/commands/history.py" = [
+    "FBT002", # boolean typer.Option flags are standard CLI patterns
+    "TC001",  # _RecordingClient is a subtype of KritaClient
+]
+"src/krita_cli/commands/batch.py" = [
+    "FBT002", # boolean typer.Option flags are standard CLI patterns
+    "TC003",  # Path is used at runtime for file operations
+]
+"src/krita_cli/commands/layers.py" = [
+    "FBT002", # boolean typer.Option flags are standard CLI patterns
+]
+"src/krita_anime/cli.py" = [
+    "FBT002", # boolean typer.Option flags are standard CLI patterns
+]
+"src/krita_mcp/server.py" = [
+    "TRY300", # try/else pattern is standard for MCP tool error handling
+    "FBT001", # boolean params are natural for MCP tools
+    "FBT002", # boolean defaults are natural for MCP tools
+    "PLW0603", # global singleton pattern is appropriate here
+    "A002",   # filter param matches MCP client API
+    "TC001",  # dynamic dict access from HTTP response
+]
+"types/**/*.pyi" = [
+    "N802",   # function names must match Krita's camelCase API
+    "N803",   # argument names must match Krita's camelCase API
+    "PYI021", # docstrings allowed in stubs for documentation
+    "PYI020", # quoted annotations needed for forward references in stubs
+    "UP035",  # typing.Sequence is fine in stubs
+    "UP037",  # quoted annotations needed for forward references in stubs
+    "A002",   # Krita API uses `type` as parameter name
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["krita_client", "krita_mcp", "krita_cli", "krita_anime"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Argument", "typer.Option", "fastmcp.FastMCP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ty.environment]
+python = "./.venv"
+extra-paths = ["src", "types"]
+python-version = "3.12"
+
+[tool.ty.rules]
+unresolved-import = "warn"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "--cov=krita_client",
+    "--cov=krita_mcp",
+    "--cov=krita_cli",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=95",
+    "--strict-markers",
+    "--strict-config",
+    "-n", "auto",
+]
+markers = [
+    "e2e: end-to-end tests requiring Krita",
+    "slow: slow running tests",
+    "integration: integration tests",
+]
+
+[tool.coverage.run]
+source = ["krita_client", "krita_mcp", "krita_cli"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "raise NotImplementedError",
+]

@@ -1,0 +1,19 @@
+{
+  "id": "hero",
+  "anchors": {
+    "face": "soft V-shaped jaw, small straight nose, ears aligned from brow to nose",
+    "eyes": "large amber upturned eyes, dark upper lashes, two highlights at 11 and 2 o'clock",
+    "hair": "short black bob, left part, outward nape tips, red clip over left temple",
+    "signature": ["red left-side hair clip", "small beauty mark below right eye"],
+    "proportions": "6.5 heads tall, narrow shoulders, long lower legs"
+  },
+  "palette": {
+    "skin": "#F2C6A8",
+    "hair": "#171820",
+    "eyes": "#D98A31",
+    "accent": "#C93642"
+  },
+  "default_costume": "navy sailor uniform, white collar stripes, red neckerchief, black loafers",
+  "allowed_variations": ["pose", "expression", "outerwear", "scene lighting"],
+  "references": []
+}

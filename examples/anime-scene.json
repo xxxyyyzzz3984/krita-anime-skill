@@ -1,0 +1,123 @@
+{
+  "version": "1.0",
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "name": "rainy-platform-01",
+    "background": "#E8EDF2"
+  },
+  "characters": [
+    {
+      "id": "hero",
+      "anchors": {
+        "face": "soft V-shaped jaw, small straight nose, ears aligned from brow to nose",
+        "eyes": "large amber upturned eyes, dark upper lashes, two highlights at 11 and 2 o'clock",
+        "hair": "short black bob, left part, outward nape tips, red clip over left temple",
+        "signature": ["red left-side hair clip", "small beauty mark below right eye"],
+        "proportions": "6.5 heads tall, narrow shoulders, long lower legs"
+      },
+      "palette": {
+        "skin": "#F2C6A8",
+        "hair": "#171820",
+        "eyes": "#D98A31",
+        "accent": "#C93642"
+      },
+      "default_costume": "navy sailor uniform, white collar stripes, red neckerchief, black loafers",
+      "allowed_variations": ["pose", "expression", "outerwear", "scene lighting"],
+      "references": []
+    }
+  ],
+  "cast": [
+    {
+      "character_id": "hero",
+      "pose": "three-quarter sprint toward camera, left arm forward",
+      "expression": "focused with slightly open mouth",
+      "costume": "transparent raincoat over canonical uniform",
+      "scene_notes": "Keep the left hair clip and right-eye beauty mark visible"
+    }
+  ],
+  "layers": [
+    {
+      "name": "rough-gesture",
+      "phase": "rough",
+      "kind": "paint",
+      "opacity": 0.35,
+      "visible": true,
+      "operations": [
+        {
+          "op": "brush_stroke",
+          "preset": "Basic-5 Size",
+          "color": "#3977A8",
+          "size": 6,
+          "opacity": 0.7,
+          "stabilizer": 0.25,
+          "points": [
+            {"x": 600, "y": 135, "pressure": 0.25},
+            {"x": 620, "y": 240, "pressure": 0.7},
+            {"x": 575, "y": 390, "pressure": 0.6},
+            {"x": 520, "y": 575, "pressure": 0.2}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lineart-face",
+      "phase": "lineart",
+      "kind": "vector",
+      "opacity": 1.0,
+      "visible": true,
+      "operations": [
+        {
+          "op": "bezier_path",
+          "start": {"x": 560, "y": 150},
+          "segments": [
+            {
+              "control1": {"x": 535, "y": 190},
+              "control2": {"x": 545, "y": 245},
+              "end": {"x": 605, "y": 265}
+            },
+            {
+              "control1": {"x": 660, "y": 245},
+              "control2": {"x": 675, "y": 185},
+              "end": {"x": 640, "y": 150}
+            }
+          ],
+          "stroke": "#24222A",
+          "fill": "#F2C6A8",
+          "stroke_width": 5,
+          "closed": true,
+          "opacity": 1.0
+        }
+      ]
+    },
+    {
+      "name": "rain-effects",
+      "phase": "effects",
+      "kind": "vector",
+      "opacity": 0.7,
+      "visible": true,
+      "operations": [
+        {
+          "op": "bezier_path",
+          "start": {"x": 110, "y": 80},
+          "segments": [
+            {
+              "control1": {"x": 105, "y": 160},
+              "control2": {"x": 90, "y": 230},
+              "end": {"x": 82, "y": 315}
+            }
+          ],
+          "stroke": "#79A9C7",
+          "fill": "none",
+          "stroke_width": 3,
+          "closed": false,
+          "opacity": 0.8
+        }
+      ]
+    }
+  ],
+  "exports": [
+    {"path": "outputs/rainy-platform-01.kra", "format": "kra"},
+    {"path": "outputs/rainy-platform-01.png", "format": "png"}
+  ]
+}

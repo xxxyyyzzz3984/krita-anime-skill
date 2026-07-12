@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "canvas": {"width": 1600, "height": 900, "name": "episode-01-board", "background": "#F4F4F2"},
+  "characters": [],
+  "cast": [],
+  "layers": [
+    {
+      "name": "storyboard-panels",
+      "phase": "rough",
+      "kind": "storyboard",
+      "opacity": 1.0,
+      "visible": true,
+      "operations": [
+        {
+          "op": "storyboard",
+          "gutter": 24,
+          "border_color": "#202020",
+          "border_width": 5,
+          "panels": [
+            {"id": "1A", "x": 40, "y": 40, "width": 720, "height": 360, "camera": "wide establishing", "action": "empty station in rain", "dialogue": "", "notes": "hold for two seconds"},
+            {"id": "1B", "x": 800, "y": 40, "width": 760, "height": 360, "camera": "low medium tracking", "action": "hero runs into frame", "dialogue": "Wait!", "notes": "motion left to right"},
+            {"id": "1C", "x": 40, "y": 450, "width": 1520, "height": 400, "camera": "close-up", "action": "hero recognizes someone across the tracks", "dialogue": "I found you.", "notes": "eye-line to upper right"}
+          ]
+        }
+      ]
+    }
+  ],
+  "exports": [{"path": "outputs/episode-01-board.kra", "format": "kra"}]
+}

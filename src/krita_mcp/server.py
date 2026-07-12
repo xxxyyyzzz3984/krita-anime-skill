@@ -1,0 +1,1276 @@
+"""Krita MCP Server — FastMCP interface for AI agents.
+
+Exposes painting tools to any MCP client (Claude, etc.) by wrapping
+the krita_client library.
+"""
+
+from __future__ import annotations
+
+from typing import Any, cast
+
+from fastmcp import FastMCP
+
+from krita_client import (
+    ClientConfig,
+    KritaClient,
+    KritaConnectionError,
+    KritaError,
+)
+
+# Configuration
+_client: KritaClient | None = None
+
+
+def _get_client() -> KritaClient:
+    """Get or create the Krita client singleton."""
+    global _client
+    if _client is None:
+        config = ClientConfig()
+        _client = KritaClient(config)
+    return _client
+
+
+def _format_error(exc: KritaError) -> str:
+    """Format a Krita error for MCP response."""
+    if exc.code:
+        return f"[{exc.code}] {exc.message}"
+    return exc.message
+
+
+mcp = FastMCP("krita-mcp")
+
+
+@mcp.tool()
+def krita_health() -> str:
+    """Check if Krita is running and the MCP plugin is active."""
+    try:
+        client = _get_client()
+        result = client.health()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        plugin = result.get("plugin", "unknown")
+        status = result.get("status", "unknown")
+        return f"Krita is running. Plugin: {plugin} ({status})"
+    except KritaConnectionError as exc:
+        return f"Cannot connect to Krita. Make sure Krita is running with the MCP plugin enabled. ({exc.message})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_new_canvas(
+    width: int = 800,
+    height: int = 600,
+    name: str = "New Canvas",
+    background: str = "#1a1a2e",
+) -> str:
+    """Create a new canvas in Krita.
+
+    Args:
+        width: Canvas width in pixels (default 800, max 8192)
+        height: Canvas height in pixels (default 600, max 8192)
+        name: Document name
+        background: Background color as hex (default dark blue)
+    """
+    try:
+        client = _get_client()
+        result = client.new_canvas(
+            width=width,
+            height=height,
+            name=name,
+            background=background,
+        )
+        if "error" in result:
+            return f"Error: {result['error']}"
+        w = result.get("width", width)
+        h = result.get("height", height)
+        return f"Created canvas: {w}x{h}, background: {background}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_set_color(color: str) -> str:
+    """Set the foreground paint color.
+
+    Args:
+        color: Hex color code (e.g., "#ff6b6b", "#b8a9c9")
+    """
+    try:
+        client = _get_client()
+        result = client.set_color(color=color)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Color set to {color}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_set_brush(
+    preset: str | None = None,
+    size: int | None = None,
+    opacity: float | None = None,
+) -> str:
+    """Set brush preset and properties.
+
+    Args:
+        preset: Brush preset name (partial match, e.g., "Basic", "Soft", "Airbrush")
+        size: Brush size in pixels
+        opacity: Brush opacity (0.0 to 1.0)
+    """
+    try:
+        client = _get_client()
+        result = client.set_brush(preset=preset, size=size, opacity=opacity)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        parts = []
+        if preset:
+            parts.append(f"preset={preset}")
+        if size is not None:
+            parts.append(f"size={size}")
+        if opacity is not None:
+            parts.append(f"opacity={opacity}")
+        return f"Brush set: {', '.join(parts) if parts else 'no changes'}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_stroke(
+    points: list[list[int]],
+    pressure: float = 1.0,
+    size: int | None = None,
+    hardness: float = 0.5,
+    opacity: float = 1.0,
+) -> str:
+    """Paint a stroke through a series of points.
+
+    Args:
+        points: List of [x, y] coordinate pairs, e.g., [[100, 100], [150, 120], [200, 150]]
+        pressure: Brush pressure (0.0 to 1.0, affects stroke thickness/opacity)
+        size: Brush size in pixels (overrides current brush size)
+        hardness: Stroke hardness (0.0 = very soft, 1.0 = hard edge)
+        opacity: Stroke opacity (0.0 to 1.0)
+    """
+    try:
+        client = _get_client()
+        result = client.stroke(
+            points=points,
+            pressure=pressure,
+            size=size,
+            hardness=hardness,
+            opacity=opacity,
+        )
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Stroke painted with {len(points)} points"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_native_stroke(
+    points: list[dict[str, float]],
+    preset: str,
+    size: float,
+    opacity: float = 1.0,
+) -> str:
+    """Paint a pressure-sensitive stroke through Krita's native brush engine.
+
+    Each point must contain document-pixel x/y coordinates and pressure from
+    0.0 to 1.0. Use an installed Krita brush preset name.
+    """
+    try:
+        client = _get_client()
+        result = client.native_stroke(points=points, preset=preset, size=size, opacity=opacity)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Native stroke painted with {len(points)} pressure points"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_import_svg_layer(
+    name: str,
+    svg: str,
+    opacity: float = 1.0,
+    visible: bool = True,
+) -> str:
+    """Create an editable Krita vector layer from safe inline SVG."""
+    try:
+        client = _get_client()
+        result = client.import_svg_layer(name=name, svg=svg, opacity=opacity, visible=visible)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        count = result.get("shape_count", 0)
+        return f"Created vector layer '{name}' with {count} shapes"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_create_storyboard(
+    name: str,
+    panels: list[dict[str, Any]],
+    gutter: int = 24,
+    border_color: str = "#202020",
+    border_width: float = 4.0,
+) -> str:
+    """Create editable storyboard panels with camera, action, dialogue, and notes."""
+    try:
+        client = _get_client()
+        result = client.create_storyboard(
+            name=name,
+            panels=panels,
+            gutter=gutter,
+            border_color=border_color,
+            border_width=border_width,
+        )
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Created storyboard '{name}' with {len(panels)} panels"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_fill(x: int, y: int, radius: int = 50) -> str:
+    """Fill an area with current color (paints a filled circle at the point).
+
+    Args:
+        x: X coordinate
+        y: Y coordinate
+        radius: Fill radius in pixels
+    """
+    try:
+        client = _get_client()
+        result = client.fill(x=x, y=y, radius=radius)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Filled at ({x}, {y}) with radius {radius}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_draw_shape(
+    shape: str,
+    x: int,
+    y: int,
+    width: int = 100,
+    height: int = 100,
+    fill: bool = True,
+    stroke: bool = False,
+    x2: int | None = None,
+    y2: int | None = None,
+) -> str:
+    """Draw a shape on the canvas.
+
+    Args:
+        shape: Type of shape - "rectangle", "ellipse", or "line"
+        x: X coordinate (top-left for shapes, start point for lines)
+        y: Y coordinate (top-left for shapes, start point for lines)
+        width: Width of shape (ignored for lines if x2/y2 provided)
+        height: Height of shape (ignored for lines if x2/y2 provided)
+        fill: Whether to fill the shape
+        stroke: Whether to draw outline
+        x2: End X for lines (optional)
+        y2: End Y for lines (optional)
+    """
+    try:
+        client = _get_client()
+        result = client.draw_shape(
+            shape=shape,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            fill=fill,
+            stroke=stroke,
+            x2=x2,
+            y2=y2,
+        )
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Drew {shape} at ({x}, {y})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_canvas(filename: str = "canvas.png") -> str:
+    """Export current canvas to a PNG file and return the path.
+    Use this to see your painting progress.
+
+    Args:
+        filename: Output filename (saved to configured output directory)
+    """
+    try:
+        client = _get_client()
+        result = client.get_canvas(filename=filename)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        path = result.get("path", "")
+        return f"Canvas saved to: {path}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_undo() -> str:
+    """Undo the last action."""
+    try:
+        client = _get_client()
+        result = client.undo()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Undone"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_redo() -> str:
+    """Redo the last undone action."""
+    try:
+        client = _get_client()
+        result = client.redo()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Redone"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_clear(color: str = "#1a1a2e") -> str:
+    """Clear the canvas to a solid color.
+
+    Args:
+        color: Color to fill canvas with (default dark blue)
+    """
+    try:
+        client = _get_client()
+        result = client.clear(color=color)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Canvas cleared to {color}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_save(path: str) -> str:
+    """Save the current canvas to a specific file path.
+
+    Args:
+        path: Full file path to save to (e.g., "C:/art/my_painting.png")
+    """
+    try:
+        client = _get_client()
+        result = client.save(path=path)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Saved to {path}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_color_at(x: int, y: int) -> str:
+    """Sample the color at a specific pixel (eyedropper).
+
+    Args:
+        x: X coordinate
+        y: Y coordinate
+    """
+    try:
+        client = _get_client()
+        result = client.get_color_at(x=x, y=y)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        color = result.get("color", "unknown")
+        r = result.get("r")
+        g = result.get("g")
+        b = result.get("b")
+        return f"Color at ({x}, {y}): {color} (R:{r}, G:{g}, B:{b})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_list_brushes(filter: str = "", limit: int = 20) -> str:
+    """List available brush presets.
+
+    Args:
+        filter: Filter brushes by name (partial match)
+        limit: Maximum number to return
+    """
+    try:
+        client = _get_client()
+        result = client.list_brushes(filter=filter, limit=limit)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        brushes_raw = result.get("brushes", [])
+        if not isinstance(brushes_raw, list):
+            brushes_raw = []
+        brushes = [str(b) for b in brushes_raw]
+        if not brushes:
+            return "No brushes found matching filter"
+        return f"Available brushes ({len(brushes)}):\n" + "\n".join(f"  - {b}" for b in brushes)
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_open_file(path: str) -> str:
+    """Open an existing file in Krita (.kra, .png, .jpg, etc).
+
+    Args:
+        path: Full file path to open (e.g., "C:/art/my_painting.kra")
+    """
+    try:
+        client = _get_client()
+        result = client.open_file(path=path)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        name = result.get("name", "unknown")
+        w = result.get("width")
+        h = result.get("height")
+        return f"Opened: {name} ({w}x{h})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_batch(
+    commands: list[dict],
+    stop_on_error: bool = False,
+) -> str:
+    """Execute multiple commands in a single batch.
+
+    Args:
+        commands: List of command objects, each with "action" and optional "params"
+        stop_on_error: Stop executing remaining commands on first error
+    """
+    try:
+        client = _get_client()
+        result = client.batch_execute(commands, stop_on_error=stop_on_error)
+        if "error" in result:
+            return f"Error: {result['error']}"
+
+        results_raw = result.get("results", [])
+        if not isinstance(results_raw, list):
+            results_raw = []
+        results = cast("list[dict[str, Any]]", results_raw)
+
+        ok = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "ok")
+        errs = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "error")
+        summary = f"Batch: {ok} succeeded, {errs} failed out of {len(results)}"
+
+        batch_id = result.get("batch_id")
+        if batch_id:
+            summary += f" (Batch ID: {batch_id})"
+
+        if errs > 0:
+            error_details = []
+            for r in results:
+                if isinstance(r, dict) and r.get("status") == "error":
+                    err_msg = _extract_batch_error(r)
+                    error_details.append(f"  - {r.get('action', 'unknown')}: {err_msg}")
+            if error_details:
+                summary += "\nErrors:\n" + "\n".join(error_details)
+        return summary
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+def _extract_batch_error(r: dict[str, Any]) -> str:
+    """Extract error message from a batch result entry."""
+    err_msg = r.get("error")
+    if not err_msg:
+        result_data = r.get("result", {})
+        if isinstance(result_data, dict) and "error" in result_data:
+            err_info = result_data["error"]
+            err_msg = err_info.get("message", str(err_info)) if isinstance(err_info, dict) else str(err_info)
+
+    if not err_msg:
+        err_msg = "unknown"
+    return str(err_msg)
+
+
+@mcp.tool()
+def krita_rollback(
+    batch_id: str,
+) -> str:
+    """Roll back a previously executed batch operation.
+
+    This restores the canvas state to what it was before the batch started.
+    Note: Snapshots are lost if the Krita plugin is restarted.
+
+    Args:
+        batch_id: The unique ID returned by a previous krita_batch call.
+    """
+    try:
+        client = _get_client()
+        result = client.rollback(batch_id=batch_id)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        msg = result.get("message", "Rollback successful")
+        return f"Rollback complete: {msg}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_command_history(
+    limit: int = 20,
+) -> str:
+    """Get recent command execution history.
+
+    Args:
+        limit: Number of history entries to return (default 20)
+    """
+    try:
+        client = _get_client()
+        result = client.get_command_history(limit=limit)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        records_raw = result.get("history", [])
+        if not isinstance(records_raw, list):
+            records_raw = []
+        records = cast("list[dict[str, Any]]", records_raw)
+
+        if not records:
+            return "No command history recorded."
+        lines = [f"Command History ({len(records)} entries):"]
+        for i, rec in enumerate(records, 1):
+            status = rec.get("status", "?")
+            action = rec.get("action", "?")
+            duration = rec.get("duration_ms", 0)
+            error = rec.get("error", "")
+            line = f"  {i}. {action} — {status} ({duration:.1f}ms)"
+            if error:
+                line += f" — {error}"
+            lines.append(line)
+        return "\n".join(lines)
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_canvas_info() -> str:
+    """Get information about the current canvas including dimensions, name, and color model.
+
+    Use this to understand the canvas you are working with.
+    """
+    try:
+        client = _get_client()
+        result = client.get_canvas_info()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        parts = []
+        if "name" in result:
+            parts.append(f"name={result['name']}")
+        if "width" in result:
+            parts.append(f"width={result['width']}")
+        if "height" in result:
+            parts.append(f"height={result['height']}")
+        if "color_model" in result:
+            parts.append(f"color_model={result['color_model']}")
+        if "color_depth" in result:
+            parts.append(f"color_depth={result['color_depth']}")
+        return f"Canvas info: {', '.join(parts) if parts else 'no active document'}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_current_color() -> str:
+    """Get the current foreground and background paint colors.
+
+    Use this to check what colors are currently selected for painting.
+    """
+    try:
+        client = _get_client()
+        result = client.get_current_color()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        fg = result.get("foreground", "unknown")
+        bg = result.get("background", "unknown")
+        return f"Colors — foreground: {fg}, background: {bg}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_current_brush() -> str:
+    """Get the current brush preset name, size, and opacity.
+
+    Use this to check the active brush settings before painting.
+    """
+    try:
+        client = _get_client()
+        result = client.get_current_brush()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        parts = []
+        if "preset" in result:
+            parts.append(f"preset={result['preset']}")
+        if "size" in result:
+            parts.append(f"size={result['size']}")
+        if "opacity" in result:
+            parts.append(f"opacity={result['opacity']}")
+        return f"Brush info: {', '.join(parts) if parts else 'no active view'}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_list_layers() -> str:
+    """List all layers in the current document."""
+    try:
+        client = _get_client()
+        result = client.list_layers()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        layers_raw = result.get("layers", [])
+        if not isinstance(layers_raw, list):
+            layers_raw = []
+        layers = cast("list[dict[str, Any]]", layers_raw)
+        count = result.get("count", len(layers))
+        if not layers:
+            return "No layers found in the current document"
+        names = [str(layer.get("name", "?")) for layer in layers]
+        return f"Layers ({count}): {', '.join(names)}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_create_layer(
+    name: str = "New Layer",
+    layer_type: str = "paintlayer",
+) -> str:
+    """Create a new layer in the current document.
+
+    Args:
+        name: Layer name.
+        layer_type: Krita node type, e.g. "paintlayer".
+    """
+    try:
+        client = _get_client()
+        result = client.create_layer(name=name, layer_type=layer_type)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        created_name = result.get("name", name)
+        created_type = result.get("type", layer_type)
+        return f"Created layer '{created_name}' ({created_type})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_layer(name: str) -> str:
+    """Select a layer by name."""
+    try:
+        client = _get_client()
+        result = client.select_layer(name=name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        selected_name = result.get("selected", name)
+        return f"Selected layer '{selected_name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_delete_layer(name: str) -> str:
+    """Delete a layer by name."""
+    try:
+        client = _get_client()
+        result = client.delete_layer(name=name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        deleted_name = result.get("deleted", name)
+        return f"Deleted layer '{deleted_name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_rename_layer(old_name: str, new_name: str) -> str:
+    """Rename a layer.
+
+    Args:
+        old_name: Current layer name.
+        new_name: Replacement layer name.
+    """
+    try:
+        client = _get_client()
+        result = client.rename_layer(old_name=old_name, new_name=new_name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Renamed layer '{old_name}' to '{new_name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_set_layer_opacity(name: str, opacity: float) -> str:
+    """Set the opacity of a layer.
+
+    Args:
+        name: Layer name.
+        opacity: Opacity as a 0.0-1.0 fraction.
+    """
+    try:
+        client = _get_client()
+        result = client.set_layer_opacity(name=name, opacity=opacity)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Set layer '{name}' opacity to {opacity}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_set_layer_visibility(name: str, visible: bool) -> str:
+    """Toggle layer visibility.
+
+    Args:
+        name: Layer name.
+        visible: True to show the layer, False to hide it.
+    """
+    try:
+        client = _get_client()
+        result = client.set_layer_visibility(name=name, visible=visible)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        state = "visible" if visible else "hidden"
+        return f"Set layer '{name}' to {state}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_rect(x: int, y: int, width: int, height: int) -> str:
+    """Select a rectangular area on the canvas.
+
+    Args:
+        x: X coordinate of top-left corner
+        y: Y coordinate of top-left corner
+        width: Width of the selection
+        height: Height of the selection
+    """
+    try:
+        client = _get_client()
+        result = client.select_rect(x=x, y=y, width=width, height=height)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Selected rectangle {width}x{height} at ({x}, {y})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_ellipse(cx: int, cy: int, rx: int, ry: int) -> str:
+    """Select an elliptical area on the canvas.
+
+    Args:
+        cx: X coordinate of center
+        cy: Y coordinate of center
+        rx: Horizontal radius
+        ry: Vertical radius
+    """
+    try:
+        client = _get_client()
+        result = client.select_ellipse(cx=cx, cy=cy, rx=rx, ry=ry)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Selected ellipse at ({cx}, {cy}) with radii {rx}x{ry}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_polygon(points: list[list[int]]) -> str:
+    """Select a polygonal area on the canvas.
+
+    Args:
+        points: List of [x, y] coordinate pairs (minimum 3 points)
+    """
+    try:
+        client = _get_client()
+        result = client.select_polygon(points=points)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Selected polygon with {len(points)} points"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_area(x: int, y: int, width: int, height: int) -> str:
+    """Compatibility alias for rectangular selection.
+
+    This mirrors the CLI `selection select-area` alias while routing through the
+    same rectangle-selection client call.
+    """
+    try:
+        client = _get_client()
+        result = client.select_rect(x=x, y=y, width=width, height=height)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Selected area {width}x{height} at ({x}, {y})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_selection_info() -> str:
+    """Get information about the current selection."""
+    try:
+        client = _get_client()
+        result = client.selection_info()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        if result.get("has_selection"):
+            bounds_raw = result.get("bounds", {})
+            if not isinstance(bounds_raw, dict):
+                bounds_raw = {}
+            b = cast("dict[str, Any]", bounds_raw)
+            return f"Selection: x={b.get('x')}, y={b.get('y')}, w={b.get('width')}, h={b.get('height')}"
+        return "No active selection"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_clear_selection() -> str:
+    """Clear the content of the current selection."""
+    try:
+        client = _get_client()
+        result = client.clear_selection()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Cleared selection"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_invert_selection() -> str:
+    """Invert the current selection."""
+    try:
+        client = _get_client()
+        result = client.invert_selection()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Inverted selection"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_fill_selection() -> str:
+    """Fill the current selection with the foreground color."""
+    try:
+        client = _get_client()
+        result = client.fill_selection()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Filled selection"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_deselect() -> str:
+    """Remove the current selection."""
+    try:
+        client = _get_client()
+        result = client.deselect()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return "Deselected"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_by_color(
+    x: int | None = None,
+    y: int | None = None,
+    tolerance: float = 0.1,
+    contiguous: bool = True,
+) -> str:
+    """Select pixels by color similarity.
+
+    Use x,y for magic wand (contiguous region from point).
+    Omit x,y for global color selection across entire canvas.
+
+    Args:
+        x: X coordinate for magic wand (None for global).
+        y: Y coordinate for magic wand (None for global).
+        tolerance: Color tolerance 0.0-1.0 (default 0.1).
+        contiguous: True for magic wand, False for global (default True).
+    """
+    try:
+        client = _get_client()
+        result = client.select_by_color(x=x, y=y, tolerance=tolerance, contiguous=contiguous)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        method = "Magic wand" if contiguous else "Global"
+        count = result.get("selected_count", 0)
+        return f"{method} color selection: {count} pixels (tolerance={tolerance})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_select_by_alpha(
+    min_alpha: int = 1,
+    max_alpha: int = 255,
+) -> str:
+    """Select pixels by alpha value range.
+
+    Args:
+        min_alpha: Minimum alpha value 0-255 (default 1).
+        max_alpha: Maximum alpha value 0-255 (default 255).
+    """
+    try:
+        client = _get_client()
+        result = client.select_by_alpha(min_alpha=min_alpha, max_alpha=max_alpha)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        count = result.get("selected_count", 0)
+        return f"Alpha selection: {count} pixels (alpha={min_alpha}-{max_alpha})"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_get_capabilities() -> str:
+    """Get detected API capabilities from the Krita plugin."""
+    try:
+        client = _get_client()
+        result = client.get_capabilities()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        available_raw = result.get("selection_tools", [])
+        if not isinstance(available_raw, list):
+            available_raw = []
+        available = [str(t) for t in available_raw]
+        if available:
+            return f"Available selection tools: {', '.join(available)}"
+        return "No selection tools detected in this Krita version"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_transform_selection(
+    dx: int = 0,
+    dy: int = 0,
+    angle: float = 0.0,
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+) -> str:
+    """Transform the current selection (move, rotate, scale).
+
+    Args:
+        dx: Horizontal offset in pixels
+        dy: Vertical offset in pixels
+        angle: Rotation angle in degrees
+        scale_x: Horizontal scale factor
+        scale_y: Vertical scale factor
+    """
+    try:
+        client = _get_client()
+        result = client.transform_selection(dx=dx, dy=dy, angle=angle, scale_x=scale_x, scale_y=scale_y)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Transformed selection (dx={dx}, dy={dy}, angle={angle}°)"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_grow_selection(pixels: int) -> str:
+    """Grow the current selection outward by N pixels."""
+    try:
+        client = _get_client()
+        result = client.grow_selection(pixels)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Grew selection by {pixels}px"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_shrink_selection(pixels: int) -> str:
+    """Shrink the current selection inward by N pixels."""
+    try:
+        client = _get_client()
+        result = client.shrink_selection(pixels)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Shrunk selection by {pixels}px"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_border_selection(pixels: int) -> str:
+    """Create a border selection around the current selection."""
+    try:
+        client = _get_client()
+        result = client.border_selection(pixels)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Created {pixels}px border around selection"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_combine_selections(operation: str, mask_path: str) -> str:
+    """Combine the current selection with a second selection mask."""
+    try:
+        client = _get_client()
+        result = client.combine_selections(operation=operation, mask_path=mask_path)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        count = result.get("selected_count", 0)
+        return f"Combined selection via {operation}: {count} pixels"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_save_selection(path: str) -> str:
+    """Save the current selection as a PNG mask image (white=selected, black=unselected)."""
+    try:
+        client = _get_client()
+        result = client.save_selection(path=path)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Saved selection to {path}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_load_selection(path: str) -> str:
+    """Load a selection from a PNG mask image (white=selected, black=unselected)."""
+    try:
+        client = _get_client()
+        result = client.load_selection(path=path)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Loaded selection from {path}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_selection_stats() -> str:
+    """Get statistics about the current selection (pixel count, centroid, bounding box, area %)."""
+    try:
+        client = _get_client()
+        result = client.selection_stats()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        count = result.get("pixel_count", 0)
+        bbox_raw = result.get("bounding_box", {})
+        if not isinstance(bbox_raw, dict):
+            bbox_raw = {}
+        bbox = cast("dict[str, Any]", bbox_raw)
+
+        centroid_raw = result.get("centroid", {})
+        if not isinstance(centroid_raw, dict):
+            centroid_raw = {}
+        centroid = cast("dict[str, Any]", centroid_raw)
+
+        area_pct = result.get("area_percentage")
+        parts = [f"Pixel count: {count}"]
+        if bbox:
+            w = bbox.get("width", "?")
+            h = bbox.get("height", "?")
+            bx = bbox.get("x", "?")
+            by = bbox.get("y", "?")
+            parts.append(f"Bounding box: {w}x{h} at ({bx}, {by})")
+        if centroid:
+            cx = centroid.get("x", "?")
+            cy = centroid.get("y", "?")
+            parts.append(f"Centroid: ({cx}, {cy})")
+        if area_pct is not None:
+            # Handle possible float conversion for type safety
+            pct = float(cast("Any", area_pct))
+            parts.append(f"Area: {pct:.1f}% of canvas")
+        return "Selection stats: " + " | ".join(parts)
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_save_selection_channel(name: str) -> str:
+    """Save the current selection as a named channel within the document."""
+    try:
+        client = _get_client()
+        result = client.save_selection_channel(name=name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Saved selection channel '{name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_load_selection_channel(name: str) -> str:
+    """Load a named selection channel and restore it as the active selection."""
+    try:
+        client = _get_client()
+        result = client.load_selection_channel(name=name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Loaded selection channel '{name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_list_selection_channels() -> str:
+    """List all saved selection channels in the current document."""
+    try:
+        client = _get_client()
+        result = client.list_selection_channels()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        channels_raw = result.get("channels", [])
+        if not isinstance(channels_raw, list):
+            channels_raw = []
+        channels = cast("list[dict[str, Any]]", channels_raw)
+
+        count = result.get("count", 0)
+        if count == 0:
+            return "No saved selection channels"
+        names = [str(ch.get("name", "?")) for ch in channels]
+        return f"Selection channels ({count}): {', '.join(names)}"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_delete_selection_channel(name: str) -> str:
+    """Delete a saved selection channel from the current document."""
+    try:
+        client = _get_client()
+        result = client.delete_selection_channel(name=name)
+        if "error" in result:
+            return f"Error: {result['error']}"
+        return f"Deleted selection channel '{name}'"
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_security_status() -> str:
+    """Get current security limits and usage from the Krita plugin."""
+    try:
+        client = _get_client()
+        result = client.get_security_status()
+        if "error" in result:
+            return f"Error: {result['error']}"
+        rl_raw = result.get("rate_limit", {})
+        if not isinstance(rl_raw, dict):
+            rl_raw = {}
+        rl = cast("dict[str, Any]", rl_raw)
+
+        payload_limit = result.get("payload_limit", 0)
+        if not isinstance(payload_limit, (int, float)):
+            payload_limit = 0
+
+        parts = [
+            f"Rate limit: {rl.get('current_usage', 0)}/{rl.get('max_commands_per_minute', '?')} per minute",
+            f"Payload limit: {float(payload_limit) / (1024 * 1024):.0f}MB",
+            f"Batch limit: {result.get('batch_size_limit', '?')} commands",
+            f"Max canvas: {result.get('max_canvas_dim', '?')}x{result.get('max_canvas_dim', '?')}",
+        ]
+        return "Security status: " + " | ".join(parts)
+    except KritaError as exc:
+        return _format_error(exc)
+
+
+@mcp.tool()
+def krita_list_tools() -> str:
+    """List all available Krita MCP tools with descriptions."""
+    tools = [
+        ("krita_health", "Check Krita + plugin status"),
+        ("krita_new_canvas", "Create canvas (width, height, bg color)"),
+        ("krita_set_color", "Set foreground color (hex)"),
+        ("krita_set_brush", "Set brush preset/size/opacity"),
+        ("krita_stroke", "Paint stroke through [x, y] points"),
+        ("krita_native_stroke", "Paint pressure points with Krita's native brush engine"),
+        ("krita_import_svg_layer", "Create an editable SVG vector layer"),
+        ("krita_create_storyboard", "Create editable storyboard panels and notes"),
+        ("krita_fill", "Fill circular area"),
+        ("krita_draw_shape", "Draw rectangle/ellipse/line"),
+        ("krita_get_canvas", "Export canvas to PNG"),
+        ("krita_save", "Save canvas to file"),
+        ("krita_undo", "Undo last action"),
+        ("krita_redo", "Redo last action"),
+        ("krita_clear", "Clear canvas"),
+        ("krita_get_color_at", "Eyedropper - get color at pixel"),
+        ("krita_list_brushes", "List brush presets"),
+        ("krita_open_file", "Open existing file"),
+        ("krita_batch", "Execute multiple commands sequentially"),
+        ("krita_rollback", "Roll back a batch operation"),
+        ("krita_get_command_history", "Get recent command history"),
+        ("krita_get_canvas_info", "Get canvas metadata"),
+        ("krita_get_current_color", "Get active foreground/background colors"),
+        ("krita_get_current_brush", "Get active brush settings"),
+        ("krita_list_layers", "List document layers"),
+        ("krita_create_layer", "Create a new layer"),
+        ("krita_select_layer", "Select a layer by name"),
+        ("krita_delete_layer", "Delete a layer by name"),
+        ("krita_rename_layer", "Rename a layer"),
+        ("krita_set_layer_opacity", "Set layer opacity"),
+        ("krita_set_layer_visibility", "Show or hide a layer"),
+        ("krita_select_rect", "Select a rectangular area"),
+        ("krita_select_ellipse", "Select an elliptical area"),
+        ("krita_select_polygon", "Select a polygonal area"),
+        ("krita_select_area", "Compatibility alias for rectangular selection"),
+        ("krita_selection_info", "Get current selection bounds"),
+        ("krita_invert_selection", "Invert the current selection"),
+        ("krita_clear_selection", "Clear selection contents"),
+        ("krita_fill_selection", "Fill selection with foreground color"),
+        ("krita_deselect", "Remove current selection"),
+        ("krita_transform_selection", "Move/rotate/scale selection"),
+        ("krita_grow_selection", "Grow selection by N pixels"),
+        ("krita_shrink_selection", "Shrink selection by N pixels"),
+        ("krita_border_selection", "Create border around selection"),
+        ("krita_combine_selections", "Combine current selection with a mask"),
+        ("krita_save_selection", "Save selection as PNG mask"),
+        ("krita_load_selection", "Load selection from PNG mask"),
+        ("krita_selection_stats", "Get selection statistics"),
+        ("krita_save_selection_channel", "Save selection as named channel"),
+        ("krita_load_selection_channel", "Load named selection channel"),
+        ("krita_list_selection_channels", "List saved selection channels"),
+        ("krita_delete_selection_channel", "Delete a saved selection channel"),
+        ("krita_select_by_color", "Select by color (magic wand/global)"),
+        ("krita_select_by_alpha", "Select by alpha range"),
+        ("krita_get_capabilities", "Get detected API capabilities"),
+        ("krita_security_status", "Get security limits and usage"),
+        ("krita_list_tools", "List all available MCP tools"),
+    ]
+    lines = [f"- **{name}**: {desc}" for name, desc in tools]
+    return f"Available Krita MCP tools ({len(tools)} total):\n" + "\n".join(lines)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    mcp.run()

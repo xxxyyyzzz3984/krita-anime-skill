@@ -1,0 +1,4 @@
+interface:
+  display_name: "Krita Fine-Grained Anime"
+  short_description: "Create editable anime art and storyboards in Krita"
+  default_prompt: "Use $krita-finegrained-anime to create a layered, editable anime scene in Krita."
