@@ -154,6 +154,8 @@ Agent 产出 JSON 后，CLI 只负责确定性验证、编译和执行：
 
 Krita 5 的 PyQt5 和 Krita 6 的 PyQt6 通过兼容层支持。离线测试覆盖 schema、编译器、HTTP 载荷、MCP 和插件纯助手逻辑；真实原生笔刷事件仍需要正在运行、画布可交互的 Krita 实例。
 
+Krita 5/Qt5 的 Windows Python 绑定在调用 `addShapesFromSvg` 时可能原生崩溃，因此插件会返回可恢复的 `UNSUPPORTED_OPERATION` 并要求使用 paint layer；SVG 矢量图层执行路径保留给 Krita 6/Qt6。README 中的三个 demo 使用稳定的 Krita paint layer action 实际生成。
+
 ## 来源与许可
 
 上游固定提交和派生说明见 [`UPSTREAM.md`](UPSTREAM.md)。本项目使用 MIT License。

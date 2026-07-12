@@ -42,7 +42,7 @@ Read [references/plan-schema.md](references/plan-schema.md) before authoring JSO
 - Preserve character-pack anchors exactly unless the brief explicitly changes an allowed variation.
 - Keep storyboard, rough, lineart, color, vector, and notes in separate editable layers.
 - Use pressure samples and the configured stabilizer for expressive linework; do not replace them with a single polygon.
-- Use Bezier paths or SVG vector layers for clean curves, signs, motion lines, and repeated graphic shapes.
+- Use Bezier paths or SVG vector layers for clean curves, signs, motion lines, and repeated graphic shapes when `krita introspect capabilities` reports safe vector import. On Krita 5/Qt5, use a paint layer and report the compatibility fallback instead of calling the known-crashing SVG binding.
 - Treat PNG/JPG as previews. The `.kra` and JSON plan are the editable source of truth.
 - Never bypass schema validation or send free-form text as a Krita action.
 

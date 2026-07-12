@@ -39,7 +39,7 @@ from krita import *
 from kritamcp.anime import is_safe_inline_svg, normalize_native_points, storyboard_svg
 from kritamcp.history_store import CommandHistoryStore
 from kritamcp.payload_validator import validate_payload_size, MAX_PAYLOAD_SIZE
-from kritamcp.qt_compat import QColor, QPoint, QPolygon, QThread, QTimer
+from kritamcp.qt_compat import QT_MAJOR, QColor, QPoint, QPolygon, QThread, QTimer
 from kritamcp.rate_limiter import RateLimiter
 from kritamcp.snapshot_store import BatchSnapshotStore
 
@@ -1812,6 +1812,12 @@ class KritaMCPExtension(Extension):
             return make_error("Invalid or oversized SVG", code="INVALID_PARAMETERS", recoverable=True)
         if not is_safe_inline_svg(svg):
             return make_error("SVG contains scripts or external resources", code="INVALID_PARAMETERS", recoverable=False)
+        if QT_MAJOR < 6:
+            return make_error(
+                "This Krita 5/Qt5 build cannot safely import SVG through Python; use a paint layer or Krita 6",
+                code="UNSUPPORTED_OPERATION",
+                recoverable=True,
+            )
 
         layer = doc.createNode(name, "shapelayer")
         doc.rootNode().addChildNode(layer, None)

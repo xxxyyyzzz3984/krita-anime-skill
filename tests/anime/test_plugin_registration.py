@@ -42,3 +42,14 @@ def test_draw_shape_accepts_empty_active_paint_layer() -> None:
 
     assert "if layer is None:" in command
     assert "if not layer:" not in command
+
+
+def test_svg_import_blocks_known_crashing_qt5_binding() -> None:
+    source = PLUGIN.read_text(encoding="utf-8")
+    start = source.index("def cmd_import_svg_layer")
+    command = source[start : source.index("def cmd_create_storyboard", start)]
+
+    guard = command.index("if QT_MAJOR < 6:")
+    native_call = command.index("layer.addShapesFromSvg")
+    assert guard < native_call
+    assert 'code="UNSUPPORTED_OPERATION"' in command
