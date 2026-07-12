@@ -1,5 +1,8 @@
 from unittest.mock import Mock
 
+import pytest
+
+from krita_client.anime_models import ImportSvgLayerParams
 from krita_client.client import KritaClient
 
 
@@ -52,3 +55,12 @@ def test_create_storyboard_sends_panel_metadata() -> None:
     assert sent[0] == "create_storyboard"
     assert sent[1]["panels"][0]["camera"] == "medium shot"
     assert sent[1]["panels"][0]["action"] == "hero enters"
+
+
+def test_svg_model_allows_w3c_namespace_but_rejects_external_href() -> None:
+    valid = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M 0 0 L 1 1"/></svg>'
+    assert ImportSvgLayerParams(name="Lineart", svg=valid).svg == valid
+
+    external = '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/></svg>'
+    with pytest.raises(ValueError, match="external resources"):
+        ImportSvgLayerParams(name="Unsafe", svg=external)

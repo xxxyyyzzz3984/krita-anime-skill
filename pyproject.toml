@@ -1,6 +1,6 @@
 [project]
 name = "krita-finegrained-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fine-grained anime and storyboard automation for Krita"
 readme = "README.md"
 license = "MIT"

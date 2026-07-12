@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -11,6 +12,12 @@ MIRRORS = (
     ROOT / ".claude" / "skills" / SKILL_NAME,
     ROOT / ".opencode" / "skills" / SKILL_NAME,
 )
+DEMO_FILES = (
+    ROOT / "docs" / "demos" / "fine-lineart-scene.png",
+    ROOT / "docs" / "demos" / "character-consistency-sheet.png",
+    ROOT / "docs" / "demos" / "four-panel-storyboard.png",
+)
+KRA_FILES = tuple(path.with_suffix(".kra") for path in DEMO_FILES)
 
 
 def _relative_files(directory: Path) -> set[Path]:
@@ -88,3 +95,37 @@ def test_user_install_targets_all_supported_agents(tmp_path: Path) -> None:
         )
         assert installed == destination
         assert (destination / "SKILL.md").is_file()
+
+
+def test_public_surface_is_model_neutral() -> None:
+    public_files = (
+        ROOT / "README.md",
+        CANONICAL / "SKILL.md",
+        ROOT / "src" / "krita_anime" / "cli.py",
+    )
+    for path in public_files:
+        text = path.read_text(encoding="utf-8").lower()
+        assert "deepseek" not in text, f"model-specific wording remains in {path}"
+
+    cli_text = (ROOT / "src" / "krita_anime" / "cli.py").read_text(encoding="utf-8")
+    assert '@app.command("plan")' not in cli_text
+    assert not (ROOT / "src" / "krita_anime" / "deepseek.py").exists()
+
+
+def test_readme_contains_skill_prompts_and_demo_gallery() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "## 如何调用 Skill" in readme
+    assert readme.count("$krita-finegrained-anime") >= 3
+
+    for demo in DEMO_FILES:
+        assert demo.is_file(), f"missing demo image: {demo}"
+        assert demo.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+        relative = demo.relative_to(ROOT).as_posix()
+        assert relative in readme
+
+    for source in KRA_FILES:
+        assert source.is_file(), f"missing Krita source: {source}"
+        with zipfile.ZipFile(source) as archive:
+            assert "maindoc.xml" in archive.namelist()
+        relative = source.relative_to(ROOT).as_posix()
+        assert relative in readme

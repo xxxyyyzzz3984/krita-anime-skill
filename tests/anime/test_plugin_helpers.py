@@ -40,3 +40,11 @@ def test_storyboard_svg_contains_panels_and_xml_escaped_notes() -> None:
 def test_normalize_native_points_rejects_invalid_pressure() -> None:
     with pytest.raises(ValueError, match="pressure"):
         anime.normalize_native_points([{"x": 1, "y": 2, "pressure": 2.0}, {"x": 3, "y": 4}])
+
+
+def test_inline_svg_security_allows_namespace_only() -> None:
+    valid = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M 0 0 L 1 1"/></svg>'
+    assert anime.is_safe_inline_svg(valid)
+
+    external = '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png"/></svg>'
+    assert not anime.is_safe_inline_svg(external)

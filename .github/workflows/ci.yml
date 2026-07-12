@@ -40,6 +40,6 @@ jobs:
           ruff check
           src/krita_anime src/krita_client/anime_models.py src/krita_mcp/server.py
           tests/anime tests/packaging scripts/smoke_krita.py scripts/krita_runner_smoke.py
-          scripts/install_agent_skill.py scripts/sync_agent_layouts.py
+          scripts/install_agent_skill.py scripts/sync_agent_layouts.py scripts/render_krita_demos.py
           krita-plugin/kritamcp/anime.py krita-plugin/kritamcp/qt_compat.py
       - run: python -m build

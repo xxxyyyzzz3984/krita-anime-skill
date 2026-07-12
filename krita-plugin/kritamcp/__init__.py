@@ -36,7 +36,7 @@ except Exception:
     pass
 
 from krita import *
-from kritamcp.anime import normalize_native_points, storyboard_svg
+from kritamcp.anime import is_safe_inline_svg, normalize_native_points, storyboard_svg
 from kritamcp.history_store import CommandHistoryStore
 from kritamcp.payload_validator import validate_payload_size, MAX_PAYLOAD_SIZE
 from kritamcp.qt_compat import QColor, QPoint, QPolygon, QThread, QTimer
@@ -1808,22 +1808,17 @@ class KritaMCPExtension(Extension):
             return make_error("No active document", code="NO_ACTIVE_DOCUMENT", recoverable=True)
         name = str(params.get("name", "Vector Layer"))
         svg = str(params.get("svg", ""))
-        lowered = svg.lower()
-        forbidden = ("<script", "javascript:", "file://", "http://", "https://")
-        if len(svg.encode("utf-8")) > 2_000_000 or not lowered.lstrip().startswith("<svg"):
+        if len(svg.encode("utf-8")) > 2_000_000:
             return make_error("Invalid or oversized SVG", code="INVALID_PARAMETERS", recoverable=True)
-        if any(token in lowered for token in forbidden):
+        if not is_safe_inline_svg(svg):
             return make_error("SVG contains scripts or external resources", code="INVALID_PARAMETERS", recoverable=False)
 
         layer = doc.createNode(name, "shapelayer")
         doc.rootNode().addChildNode(layer, None)
         try:
-            try:
-                shapes = layer.addShapesFromSvg(svg)
-            except TypeError:
-                from kritamcp.qt_compat import QByteArray
+            from kritamcp.qt_compat import QByteArray
 
-                shapes = layer.addShapesFromSvg(QByteArray(svg.encode("utf-8")))
+            shapes = layer.addShapesFromSvg(QByteArray(svg.encode("utf-8")))
         except (AttributeError, RuntimeError, TypeError) as exc:
             doc.removeNode(layer)
             return make_error(f"Krita vector import failed: {exc}", code="INTERNAL_ERROR", recoverable=True)
@@ -2094,7 +2089,7 @@ class KritaMCPExtension(Extension):
         stroke = params.get("stroke", False)
 
         layer = self.get_active_layer()
-        if not layer:
+        if layer is None:
             return make_error("No active layer", code="NO_ACTIVE_LAYER", recoverable=True)
 
         doc = self.get_active_document()

@@ -10,8 +10,7 @@ import typer
 from rich.console import Console
 
 from krita_anime.compiler import Compilation, compile_plan
-from krita_anime.deepseek import DEFAULT_BASE_URL, DEFAULT_MODEL, DeepSeekPlanner, load_api_key
-from krita_anime.models import AnimePlan, CharacterPack
+from krita_anime.models import AnimePlan
 from krita_client import KritaClient
 from krita_client.config import ClientConfig
 
@@ -86,24 +85,6 @@ def run_plan(
         report.parent.mkdir(parents=True, exist_ok=True)
         report.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     console.print(f"Executed {len(commands)} commands in Krita")
-
-
-@app.command("plan")
-def generate_plan(
-    prompt: Annotated[str, typer.Argument(help="Text description of the scene")],
-    output: Annotated[Path, typer.Option("--output", "-o")],
-    character: Annotated[Path | None, typer.Option("--character")] = None,
-    base_url: Annotated[str, typer.Option("--base-url")] = DEFAULT_BASE_URL,
-    model: Annotated[str, typer.Option("--model")] = DEFAULT_MODEL,
-) -> None:
-    character_pack = None
-    if character is not None:
-        character_pack = CharacterPack.model_validate_json(character.read_text(encoding="utf-8"))
-    planner = DeepSeekPlanner(api_key=load_api_key(Path.cwd()), base_url=base_url, model=model)
-    scene = planner.create_plan(prompt, character_pack)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(scene.model_dump_json(indent=2) + "\n", encoding="utf-8")
-    console.print(f"Wrote validated plan to {output}")
 
 
 @character_app.command("init")

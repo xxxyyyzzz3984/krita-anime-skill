@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated
+from xml.etree import ElementTree as ET
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -29,11 +30,27 @@ class ImportSvgLayerParams(BaseModel):
     @field_validator("svg")
     @classmethod
     def secure_svg(cls, value: str) -> str:
-        lowered = value.lower()
-        forbidden = ("<script", "javascript:", "file://", "http://", "https://")
-        if not lowered.lstrip().startswith("<svg") or any(token in lowered for token in forbidden):
+        try:
+            root = ET.fromstring(value)  # noqa: S314 - bounded input; stdlib parser does not resolve external entities
+        except ET.ParseError as error:
+            message = "SVG must be well-formed XML"
+            raise ValueError(message) from error
+        if root.tag.rsplit("}", 1)[-1].lower() != "svg":
             message = "SVG must be inline and cannot contain scripts or external resources"
             raise ValueError(message)
+        for element in root.iter():
+            if element.tag.rsplit("}", 1)[-1].lower() == "script":
+                message = "SVG must be inline and cannot contain scripts or external resources"
+                raise ValueError(message)
+            for attribute, raw_value in element.attrib.items():
+                name = attribute.rsplit("}", 1)[-1].lower()
+                lowered = raw_value.strip().lower()
+                has_external_scheme = any(
+                    scheme in lowered for scheme in ("javascript:", "file://", "http://", "https://")
+                )
+                if name.startswith("on") or has_external_scheme or (name == "href" and not lowered.startswith("#")):
+                    message = "SVG must be inline and cannot contain scripts or external resources"
+                    raise ValueError(message)
         return value
 
 

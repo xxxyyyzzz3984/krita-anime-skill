@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from html import escape
 from typing import Any
+from xml.etree import ElementTree as ET
 
 
 def normalize_native_points(points: list[dict[str, Any]]) -> list[dict[str, float]]:
@@ -24,6 +25,26 @@ def normalize_native_points(points: list[dict[str, Any]]) -> list[dict[str, floa
             raise ValueError(message)
         normalized.append({"x": x, "y": y, "pressure": pressure})
     return normalized
+
+
+def is_safe_inline_svg(value: str) -> bool:
+    """Accept inline SVG XML while rejecting executable or external content."""
+    try:
+        root = ET.fromstring(value)  # noqa: S314 - caller caps SVG payload at 2 MB
+    except ET.ParseError:
+        return False
+    if root.tag.rsplit("}", 1)[-1].lower() != "svg":
+        return False
+    for element in root.iter():
+        if element.tag.rsplit("}", 1)[-1].lower() == "script":
+            return False
+        for attribute, raw_value in element.attrib.items():
+            name = attribute.rsplit("}", 1)[-1].lower()
+            lowered = raw_value.strip().lower()
+            has_external_scheme = any(scheme in lowered for scheme in ("javascript:", "file://", "http://", "https://"))
+            if name.startswith("on") or has_external_scheme or (name == "href" and not lowered.startswith("#")):
+                return False
+    return True
 
 
 def storyboard_svg(
