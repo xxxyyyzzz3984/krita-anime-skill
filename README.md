@@ -92,6 +92,8 @@ canonical skill 位于 [`skills/krita-finegrained-anime`](skills/krita-finegrain
 
 详细路径和兼容性说明见 [`docs/agent-installation.md`](docs/agent-installation.md)。重启对应 Agent，使其重新发现 skill。
 
+每个已安装 skill 都带有 `scripts/krita_anime.py` 跨平台入口和 `scripts/krita-anime.ps1` Windows 入口；Python 核心由已安装的 `krita-finegrained-cli` 或仓库内 `.agent-runtime` 提供。
+
 ## 如何调用 Skill
 
 下面的请求可以直接粘贴到支持 Skills 的 Agent。每次调用都让 Agent 先读 schema、生成或修改 `AnimePlan`，再验证、编译并连接 Krita；不要要求 Agent 输出一段“绘画文案”代替实际动作。

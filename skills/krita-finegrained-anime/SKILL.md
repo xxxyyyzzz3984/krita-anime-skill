@@ -21,20 +21,20 @@ Read [references/plan-schema.md](references/plan-schema.md) before authoring JSO
 1. Check the bridge with `krita health` and `krita introspect capabilities`.
 2. Create a character pack when identity must persist:
 
-   ```powershell
-   ./scripts/krita-anime.ps1 character init outputs/hero.json --id hero
+   ```shell
+   python ./scripts/krita_anime.py character init outputs/hero.json --id hero
    ```
 
 3. Replace every template value with observable traits: face ratios, eye construction, hair silhouette, palette, proportions, signature items, and canonical costume.
 4. Have the active agent backend author `outputs/scene.json` using the schema, or adapt `examples/anime-scene.json`.
 5. Validate and compile before execution:
 
-   ```powershell
-   ./scripts/krita-anime.ps1 validate outputs/scene.json
-   ./scripts/krita-anime.ps1 compile outputs/scene.json -o outputs/scene.commands.json
+   ```shell
+   python ./scripts/krita_anime.py validate outputs/scene.json
+   python ./scripts/krita_anime.py compile outputs/scene.json -o outputs/scene.commands.json
    ```
 
-6. Execute with `./scripts/krita-anime.ps1 run outputs/scene.json --report outputs/scene.report.json`.
+6. Execute with `python ./scripts/krita_anime.py run outputs/scene.json --report outputs/scene.report.json`.
 7. Inspect the layered `.kra`, exported preview, and report. Fix the smallest failing phase and rerun.
 
 ## Hard Invariants

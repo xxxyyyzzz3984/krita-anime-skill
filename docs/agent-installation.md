@@ -2,11 +2,13 @@
 
 `skills/krita-finegrained-anime` 是唯一的 canonical skill。运行 `python scripts/sync_agent_layouts.py` 会生成并覆盖仓库内的 Agent 专用镜像；CI 使用 `--check` 阻止镜像漂移。
 
+安装包包含跨平台入口 `scripts/krita_anime.py` 和 Windows PowerShell 入口 `scripts/krita-anime.ps1`。Python 入口会自动发现已安装 CLI、`KRITA_FINEGRAINED_HOME`、本机仓库 marker 或仓库内 `.agent-runtime`，因此 OpenCode 等 Agent 不需要依赖 PowerShell。
+
 ## 支持的目录
 
 | Agent | 项目级 | 用户级 |
 | --- | --- | --- |
-| Codex | `.agents/skills/<name>` | `~/.agents/skills/<name>` |
+| Codex | `.agents/skills/<name>` | `~/.codex/skills/<name>` |
 | OpenCode | `.opencode/skills/<name>` | `~/.config/opencode/skills/<name>` |
 | Claude Code | `.claude/skills/<name>` | `~/.claude/skills/<name>` |
 | WorkBuddy | `skills/<name>` | `~/.workbuddy/skills/<name>` |

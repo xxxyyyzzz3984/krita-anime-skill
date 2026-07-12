@@ -17,11 +17,19 @@ PROJECT_SKILL_DIRS = {
     "workbuddy": Path("skills"),
 }
 USER_SKILL_DIRS = {
-    "codex": Path(".agents/skills"),
+    "codex": Path(".codex/skills"),
     "opencode": Path(".config/opencode/skills"),
     "claude": Path(".claude/skills"),
     "workbuddy": Path(".workbuddy/skills"),
 }
+
+
+def repository_for_source(source: Path) -> Path | None:
+    """Return the containing checkout when installing from a full repository."""
+    for candidate in (source, *source.parents):
+        if (candidate / "src" / "krita_anime" / "cli.py").is_file():
+            return candidate
+    return None
 
 
 def destination_for(*, agent: str, scope: str, project_root: Path, home: Path) -> Path:
@@ -64,6 +72,11 @@ def install(
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source, destination)
+    if scope == "user":
+        repository = repository_for_source(source)
+        if repository is not None:
+            marker = destination / ".krita-finegrained-home"
+            marker.write_text(f"{repository}\n", encoding="utf-8")
     return destination
 
 

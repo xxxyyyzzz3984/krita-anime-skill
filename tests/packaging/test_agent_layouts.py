@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -51,6 +54,26 @@ def test_agent_skill_mirrors_are_byte_identical() -> None:
             assert (mirror / relative_path).read_bytes() == (CANONICAL / relative_path).read_bytes()
 
 
+def test_skill_bundles_working_cross_platform_python_launcher() -> None:
+    launcher = CANONICAL / "scripts" / "krita_anime.py"
+    assert launcher.is_file(), "canonical skill must include its Python launcher"
+
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT / "src")
+    result = subprocess.run(
+        [sys.executable, str(launcher), "--help"],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Plan and execute editable anime scenes in Krita" in result.stdout
+
+
 def test_project_install_targets_all_supported_agents(tmp_path: Path) -> None:
     installer = _load_installer()
     expected = {
@@ -78,7 +101,7 @@ def test_user_install_targets_all_supported_agents(tmp_path: Path) -> None:
     installer = _load_installer()
     home = tmp_path / "home"
     expected = {
-        "codex": home / ".agents" / "skills" / SKILL_NAME,
+        "codex": home / ".codex" / "skills" / SKILL_NAME,
         "opencode": home / ".config" / "opencode" / "skills" / SKILL_NAME,
         "claude": home / ".claude" / "skills" / SKILL_NAME,
         "workbuddy": home / ".workbuddy" / "skills" / SKILL_NAME,
@@ -95,6 +118,7 @@ def test_user_install_targets_all_supported_agents(tmp_path: Path) -> None:
         )
         assert installed == destination
         assert (destination / "SKILL.md").is_file()
+        assert (destination / ".krita-finegrained-home").read_text(encoding="utf-8").strip() == str(ROOT)
 
 
 def test_public_surface_is_model_neutral() -> None:
